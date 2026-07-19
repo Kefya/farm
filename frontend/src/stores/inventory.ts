@@ -1,51 +1,58 @@
 import { defineStore } from 'pinia';
 import api from '@/api';
-
-interface SeedItem {
-  cropTypeId: number;
-  name: string;
-  quantity: number;
-}
-
-interface HarvestItem {
-  cropTypeId: number;
-  name: string;
-  quantity: number;
-}
-
-interface InventoryState {
-  seeds: SeedItem[];
-  harvests: HarvestItem[];
-  loading: boolean;
-  error: string | null;
-}
+import type { SeedInventoryItem, HarvestInventoryItem } from '@/types';
+import { useAuthStore } from '@/stores/auth';
 
 export const useInventoryStore = defineStore('inventory', {
-  state: (): InventoryState => ({
-    seeds: [],
-    harvests: [],
+  state: () => ({
+    seeds: [] as SeedInventoryItem[],
+    harvests: [] as HarvestInventoryItem[],
     loading: false,
-    error: null
+    error: null as string | null
   }),
   actions: {
-    async loadInventory() {
-      this.loading = true; this.error = null;
+    async loadSeeds() {
+      this.loading = true;
+      this.error = null;
       try {
-        const [s1, s2] = await Promise.all([api.get('/inventory/seeds'), api.get('/inventory/harvests')]);
-        this.seeds = s1.data;
-        this.harvests = s2.data;
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Failed to load inventory';
-      } finally { this.loading = false; }
+        const resp = await api.get('/inventory/seeds');
+        this.seeds = resp.data as SeedInventoryItem[];
+      } catch (e: any) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
     },
-    async sellHarvest(cropTypeId: number, qty: number) {
+
+    async loadHarvests() {
+      this.loading = true;
+      this.error = null;
+      try {
+        const resp = await api.get('/inventory/harvests');
+        this.harvests = resp.data as HarvestInventoryItem[];
+      } catch (e: any) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Продать выращенную культуру
+    async sell(cropTypeId: number, qty = 1) {
+      this.loading = true;
+      this.error = null;
       try {
         const resp = await api.post('/inventory/sell', { cropTypeId, qty });
-        // server returns updated inventory and balance
-        if (resp.data.harvests) this.harvests = resp.data.harvests;
-        return resp.data;
-      } catch (err: any) {
-        throw err;
+        // Обновляем инвентарь и баланс
+        await this.loadHarvests();
+        await this.loadSeeds();
+        const auth = useAuthStore();
+        if (resp.data?.user) auth.setUser(resp.data.user);
+      } catch (e: any) {
+        this.error = e.message;
+        throw e;
+      } finally {
+        this.loading = false;
       }
     }
   }

@@ -1,34 +1,25 @@
 import { defineStore } from 'pinia';
 import api from '@/api';
-
-interface LeaderItem {
-  place: number;
-  login: string;
-  balance: number;
-  extra: number; // candidate-defined metric
-}
-
-interface LeaderState {
-  list: LeaderItem[];
-  loading: boolean;
-  error: string | null;
-}
+import type { LeaderboardEntry } from '@/types';
 
 export const useLeaderboardStore = defineStore('leaderboard', {
-  state: (): LeaderState => ({
-    list: [],
+  state: () => ({
+    entries: [] as LeaderboardEntry[],
     loading: false,
-    error: null
+    error: null as string | null
   }),
   actions: {
     async loadTop(limit = 10) {
-      this.loading = true; this.error = null;
+      this.loading = true;
+      this.error = null;
       try {
-        const resp = await api.get('/leaderboard/top', { params: { limit }});
-        this.list = resp.data;
-      } catch (err: any) {
-        this.error = err?.response?.data?.message || 'Failed to load leaderboard';
-      } finally { this.loading = false; }
+        const resp = await api.get('/leaderboard/top?limit=${limit}');
+        this.entries = resp.data as LeaderboardEntry[];
+      } catch (e: any) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 });
