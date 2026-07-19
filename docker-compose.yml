@@ -1,0 +1,44 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-farmgame}
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+data:
+    ports:
+    - "5432:5432"
+
+backend:
+  build:
+    context: ./backend/src/FarmGame.Api
+    dockerfile: Dockerfile
+  depends_on:
+  - postgres
+  environment:
+  - ConnectionStringsDefaultConnection=Host=postgres;Port=5432;Database=farmgame;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+  - Jwt_Key=${JWT_KEY:-ChangeMeInProd}
+  - JwtIssuer=FarmGame.Api
+  - Jwt_Audience=FarmGame.Client
+  ports:
+  - "5000:5000"
+  restart: unless-stopped
+
+frontend:
+  build:
+    context: ./frontend
+    dockerfile: Dockerfile
+  ports:
+    - "5173:5173"
+  environment:
+    - VITE_API_BASE=http://localhost:5000/api
+  depends_on:
+    - backend
+  restart: unless-stopped
+
+volumes:
+  pgdata:
